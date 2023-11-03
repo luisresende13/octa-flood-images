@@ -21,6 +21,9 @@ def _matches_query(record, query_params):
 def _filter_by_query(dataset, query_params):
     return dataset.apply(_matches_query, query_params=query_params, axis=1)
 
+def filter_by_query(df, query):
+    return df[_filter_by_query(df, query)]
+
 def _assign_tag(tags_list, tags_priority_list):
     if not tags_list:
         return 'normal'
@@ -261,7 +264,7 @@ frame_extractor.extract_frames(overwrite)
 # import pandas as pd
 # import cv2
 
-def buildImageDataset(dataset, base_directory, target_directory, fps=3, print_each=50):
+def buildImageDataset(dataset, base_directory, fps=3, print_each=50):
 
     videos_exist = [os.path.exists(os.path.join(base_directory, blob_name)) for blob_name in dataset['blob_name']]
     dataset_filtered = dataset[videos_exist]
@@ -279,6 +282,7 @@ def buildImageDataset(dataset, base_directory, target_directory, fps=3, print_ea
             continue    
         
         initial_timestamp = datetime.strptime(initial_timestamp_str, '%Y-%m-%d %H:%M:%S')
+        seen = record['seen']
         tags = record['tags']
         id_video = record['_id']
         
@@ -286,7 +290,7 @@ def buildImageDataset(dataset, base_directory, target_directory, fps=3, print_ea
         relative_path = os.path.splitext(blob_name)[0]
     
         # Create a directory to save frames using the same internal folder structure
-        frame_dir = os.path.join(target_directory, relative_path)
+        # frame_dir = os.path.join(target_directory, relative_path)
     
         # Get path to video file
         video_path = os.path.join(base_directory, blob_name)
@@ -318,7 +322,7 @@ def buildImageDataset(dataset, base_directory, target_directory, fps=3, print_ea
     
             # Get path fields
             frame_name = f"CODE{int(code)} {file_formatted_timestamp}.jpg"
-            frame_path = os.path.join(frame_dir, frame_name)
+            # frame_path = os.path.join(frame_dir, frame_name)
     
             # Create frame row
             frame_row = {
@@ -330,6 +334,7 @@ def buildImageDataset(dataset, base_directory, target_directory, fps=3, print_ea
                 'frame_index': frame_count,
                 'timestamp': formatted_timestamp,
                 'initial_timestamp': initial_timestamp_str,
+                'seen': seen,
                 'tags': tags,
             }
     
@@ -382,7 +387,7 @@ print('Unique tags', df_images.tag.value_counts())
 # from concurrent.futures import ThreadPoolExecutor
 # import numpy as np
 
-def process_video(record, base_directory, target_directory, fps):
+def process_video(record, base_directory, fps):
     blob_name = record['blob_name']
     code = record['code']
     initial_timestamp_str = record['timestamp']
@@ -390,13 +395,14 @@ def process_video(record, base_directory, target_directory, fps):
         return []
 
     initial_timestamp = datetime.strptime(initial_timestamp_str, '%Y-%m-%d %H:%M:%S')
+    seen = record['seen']
     tags = record['tags']
     id_video = record['_id']
     video_frames = []
 
     # Get relative path without extension
     relative_path = os.path.splitext(blob_name)[0]
-    frame_dir = os.path.join(target_directory, relative_path)
+    # frame_dir = os.path.join(target_directory, relative_path)
     video_path = os.path.join(base_directory, blob_name)
 
     if not os.path.exists(video_path):
@@ -414,7 +420,7 @@ def process_video(record, base_directory, target_directory, fps):
         formatted_timestamp = frame_timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')[:-5]
         file_formatted_timestamp = frame_timestamp.strftime('%Y-%m-%d %H-%M-%S-%f')[:-5]
         frame_name = f"CODE{int(code)} {file_formatted_timestamp}.jpg"
-        frame_path = os.path.join(frame_dir, frame_name)
+        # frame_path = os.path.join(frame_dir, frame_name)
 
         frame_row = {
             'id_video': id_video,
@@ -425,6 +431,7 @@ def process_video(record, base_directory, target_directory, fps):
             'frame_index': frame_count,
             'timestamp': formatted_timestamp,
             'initial_timestamp': initial_timestamp_str,
+            'seen': seen,
             'tags': tags,
         }
         video_frames.append(frame_row)
@@ -444,7 +451,7 @@ def buildImageDatasetThreads(dataset, base_directory, target_directory, fps=3, p
     with ThreadPoolExecutor(max_workers=max_threads) as executor:
         futures = []
         for _, record in dataset_filtered.iterrows():
-            future = executor.submit(process_video, record, base_directory, target_directory, fps)
+            future = executor.submit(process_video, record, base_directory, fps)
             futures.append(future)
 
         for future in futures:
