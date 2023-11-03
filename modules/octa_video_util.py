@@ -24,13 +24,13 @@ def _filter_by_query(dataset, query_params):
 def filter_by_query(df, query):
     return df[_filter_by_query(df, query)]
 
-def _assign_tag(tags_list, tags_priority_list):
+def _assign_tag(tags_list, tags_priority_list, default_tag='normal'):
     if not tags_list:
-        return 'normal'
+        return default_tag
     for tag in tags_priority_list:
         if tag in tags_list:
             return tag
-    return 'normal'  # Default tag if none of the priority tags are found in tags_list
+    return default_tag  # Default tag if none of the priority tags are found in tags_list
 
 # from concurrent.futures import ThreadPoolExecutor
 # from google.cloud import storage
@@ -152,7 +152,7 @@ class VideoFrameExtractor:
         with self.progress_lock:
             self.not_found += 1
             percentage_not_found = (self.not_found / self.total_rows) * 100
-            print(f"VIDEO FILE NOT FOUND {self.not_found}/{self.total_rows} rows ({percentage_exists:.2f}%) {video_path}", end='\r')
+            print(f"VIDEO FILE NOT FOUND {self.not_found}/{self.total_rows} rows ({percentage_not_found:.2f}%) {video_path}", end='\r')
     
     def extract_frames_for_row(self, record, overwrite=False, fps=3):
         self._update_progress()
@@ -214,7 +214,7 @@ class VideoFrameExtractor:
                 cv2.imwrite(frame_path, frame)
 
             cap.release()
-            print(f"Extracted {frame_count}/{video_frame_count} frames from {video_path}", end='\r')
+            # print(f"Extracted {frame_count}/{video_frame_count} frames from {video_path}", end='\r')
 
         except KeyboardInterrupt:
             print("\n\nExtraction process interrupted. Cleaning up...")
@@ -237,6 +237,12 @@ class VideoFrameExtractor:
             # Wait for all the futures (extraction tasks) to complete
             for future in futures:
                 future.result()
+            
+            self.rows_processed = 0
+            self.exists = 0
+            self.not_found = 0
+            
+            
 
 '''
 # Example usage
@@ -520,8 +526,8 @@ def copy_images_to_folders(base_directory, target_directory, dataset, train_inde
             # print('File not found error:', input_path, end='\r')
             not_found_train += 1
             continue
-        tag = dataset.iloc[idx][tag_field]
-        output_folder = os.path.join(train_output_dir, tag)
+        tag = dataset.loc[idx][tag_field]
+        output_folder = os.path.join(train_output_dir, str(tag))
         os.makedirs(output_folder, exist_ok=True)
         output_path = os.path.join(output_folder, os.path.basename(file_path))
         shutil.copy(input_path, output_path)
@@ -539,8 +545,8 @@ def copy_images_to_folders(base_directory, target_directory, dataset, train_inde
             # print('File not found error:', input_path, end='\r')
             not_found_test += 1
             continue
-        tag = dataset.iloc[idx][tag_field]
-        output_folder = os.path.join(test_output_dir, tag)
+        tag = dataset.loc[idx][tag_field]
+        output_folder = os.path.join(test_output_dir, str(tag))
         os.makedirs(output_folder, exist_ok=True)
         output_path = os.path.join(output_folder, os.path.basename(file_path))
         shutil.copy(input_path, output_path)
