@@ -7,6 +7,7 @@ import cv2
 import pandas as pd
 import numpy as np
 import shutil
+from unidecode import unidecode
 
 def formatted_blob_name(blob_name):
     words = blob_name.split(' ')
@@ -123,6 +124,7 @@ downloader.download_videos(query_params, overwrite)
 # import shutil
 # from concurrent.futures import ThreadPoolExecutor
 # import threading
+# from unidecode import unidecode
 
 class VideoFrameExtractor:
     def __init__(self, dataset, base_directory, target_directory, max_threads=5):
@@ -135,7 +137,19 @@ class VideoFrameExtractor:
         self.rows_processed = 0
         self.exists = 0
         self.not_found = 0
+        self.total_frame_count = 0
+        self.total_frames_written = 0
+        self.frames_paths = []
 
+    def _append_frame_path(self, path):
+        with self.progress_lock:
+            self.frames_paths.append(path)
+    
+    def _update_total_frame_count(self, count, written):
+        with self.progress_lock:
+            self.total_frame_count += count
+            self.total_frames_written += written
+            
     def _update_progress(self):
         with self.progress_lock:
             self.rows_processed += 1
@@ -162,7 +176,7 @@ class VideoFrameExtractor:
         initial_timestamp = datetime.strptime(initial_timestamp_str, '%Y-%m-%d %H:%M:%S')
         
         # Get relative path without extension
-        relative_path = os.path.splitext(blob_name)[0]
+        relative_path = unidecode(os.path.splitext(blob_name)[0])
 
         # Create a directory to save frames using the same internal folder structure
         frame_dir = os.path.join(self.target_directory, relative_path)
@@ -206,12 +220,14 @@ class VideoFrameExtractor:
                     # The loop finished successfully
                     break
 
-                frame_count += 1
-                frame_timestamp = frames_stamps[frame_count - 1]
+                frame_timestamp = frames_stamps[frame_count]
                 formatted_timestamp = frame_timestamp.strftime('%Y-%m-%d %H-%M-%S-%f')[:-5]
                 frame_name = f"CODE{int(code)} {formatted_timestamp}.jpg"
                 frame_path = os.path.join(frame_dir, frame_name)
-                cv2.imwrite(frame_path, frame)
+                success = cv2.imwrite(frame_path, frame)
+                frame_count += 1
+                
+                self._append_frame_path((frame_path, success))
 
             cap.release()
             # print(f"Extracted {frame_count}/{video_frame_count} frames from {video_path}", end='\r')
@@ -227,6 +243,8 @@ class VideoFrameExtractor:
             print("Extraction process cleaned up.")
             raise  # Re-raise the KeyboardInterrupt to exit the program
 
+        self._update_total_frame_count(video_frame_count, frame_count)
+    
     def extract_frames(self, overwrite=False):
         with ThreadPoolExecutor(max_workers=self.max_threads) as executor:
             futures = []
@@ -237,10 +255,18 @@ class VideoFrameExtractor:
             # Wait for all the futures (extraction tasks) to complete
             for future in futures:
                 future.result()
-            
-            self.rows_processed = 0
-            self.exists = 0
-            self.not_found = 0
+
+        print(f'\n\nFINISHED.')
+        print(f'\nFrames found: {self.total_frame_count}')
+        print(f'Frames written to disk: {self.total_frames_written}')
+        print(f'Frames folder exists: {self.exists}')
+        print(f'Videos not found: {self.not_found}')
+        
+        self.rows_processed = 0
+        self.exists = 0
+        self.not_found = 0
+        self.total_frame_count = 0
+        self.total_frames_written = 0
             
             
 
@@ -269,6 +295,7 @@ frame_extractor.extract_frames(overwrite)
 # from datetime import datetime, timedelta
 # import pandas as pd
 # import cv2
+from unidecode import unidecode
 
 def buildImageDataset(dataset, base_directory, fps=3, print_each=50):
 
@@ -293,11 +320,8 @@ def buildImageDataset(dataset, base_directory, fps=3, print_each=50):
         id_video = record['_id']
         
         # Get relative path without extension
-        relative_path = os.path.splitext(blob_name)[0]
-    
-        # Create a directory to save frames using the same internal folder structure
-        # frame_dir = os.path.join(target_directory, relative_path)
-    
+        relative_path = unidecode(os.path.splitext(blob_name)[0])
+        
         # Get path to video file
         video_path = os.path.join(base_directory, blob_name)
 
@@ -392,6 +416,7 @@ print('Unique tags', df_images.tag.value_counts())
 # import cv2
 # from concurrent.futures import ThreadPoolExecutor
 # import numpy as np
+from unidecode import unidecode
 
 def process_video(record, base_directory, fps):
     blob_name = record['blob_name']
@@ -407,7 +432,8 @@ def process_video(record, base_directory, fps):
     video_frames = []
 
     # Get relative path without extension
-    relative_path = os.path.splitext(blob_name)[0]
+    relative_path = unidecode(os.path.splitext(blob_name)[0])
+
     # frame_dir = os.path.join(target_directory, relative_path)
     video_path = os.path.join(base_directory, blob_name)
 
@@ -520,7 +546,7 @@ def copy_images_to_folders(base_directory, target_directory, dataset, train_inde
     # Copy images to train folder
     print("Copying images to train folders:")
     for i, idx in enumerate(train_index):
-        file_path = dataset.iloc[idx][file_path_field]
+        file_path = dataset.loc[idx][file_path_field]
         input_path = os.path.join(base_directory, file_path)
         if not os.path.exists(input_path):
             # print('File not found error:', input_path, end='\r')
@@ -539,7 +565,7 @@ def copy_images_to_folders(base_directory, target_directory, dataset, train_inde
     print("\nCopying images to test folders:")
     # Copy images to test folder
     for i, idx in enumerate(test_index):
-        file_path = dataset.iloc[idx][file_path_field]
+        file_path = dataset.loc[idx][file_path_field]
         input_path = os.path.join(base_directory, file_path)
         if not os.path.exists(input_path):
             # print('File not found error:', input_path, end='\r')
@@ -552,8 +578,8 @@ def copy_images_to_folders(base_directory, target_directory, dataset, train_inde
         shutil.copy(input_path, output_path)
 
         # Print progress (absolute and percentual)
-        print(f"Processed {i+1}/{total_test_files} files ({(i+1)/total_test_files*100:.2f}%) - Found: {i + 1 - not_found_test}/{total_train_files}", end='\r')
-    print(f"Processed {i+1}/{total_test_files} files ({(i+1)/total_test_files*100:.2f}%) - Found: {i + 1 - not_found_test}/{total_train_files}", end='\r')
+        print(f"Processed {i+1}/{total_test_files} files ({(i+1)/total_test_files*100:.2f}%) - Found: {i + 1 - not_found_test}/{total_test_files}", end='\r')
+    print(f"Processed {i+1}/{total_test_files} files ({(i+1)/total_test_files*100:.2f}%) - Found: {i + 1 - not_found_test}/{total_test_files}", end='\r')
 
 '''
 # Example usage
