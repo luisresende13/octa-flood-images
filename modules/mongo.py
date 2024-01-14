@@ -1,3 +1,5 @@
+# !pip install pymongo
+
 from pymongo import MongoClient
 from bson import ObjectId
 
