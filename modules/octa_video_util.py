@@ -532,57 +532,57 @@ print('Unique tags', df_images.tag.value_counts())
 # import os
 # import shutil
 
-def copy_images_to_folders(base_directory, target_directory, dataset, train_index, test_index, val_index=None, file_path_field='file_path', tag_field='tag'):
-    train_output_dir = os.path.join(target_directory, 'train')
-    test_output_dir = os.path.join(target_directory, 'test')
+def copy_images_to_folders(base_directory, target_directory, dataset, train_index=None, test_index=None, val_index=None, file_path_field='file_path', tag_field='tag'):
     
-    # Create train and test directories if they don't exist
-    os.makedirs(train_output_dir, exist_ok=True)
-    os.makedirs(test_output_dir, exist_ok=True)
-
-
-    total_train_files = len(train_index)
-    total_test_files = len(test_index)
-    not_found_train = 0
-    not_found_test = 0
+    if train_index is not None:
+        train_output_dir = os.path.join(target_directory, 'train')
+        os.makedirs(train_output_dir, exist_ok=True)
+        total_train_files = len(train_index)
+        not_found_train = 0
         
-    # Copy images to train folder
-    print("Copying images to train folders:")
-    for i, idx in enumerate(train_index):
-        file_path = dataset.loc[idx][file_path_field]
-        input_path = os.path.join(base_directory, file_path)
-        if not os.path.exists(input_path):
-            # print('File not found error:', input_path, end='\r')
-            not_found_train += 1
-            continue
-        tag = dataset.loc[idx][tag_field]
-        output_folder = os.path.join(train_output_dir, str(tag))
-        os.makedirs(output_folder, exist_ok=True)
-        output_path = os.path.join(output_folder, os.path.basename(file_path))
-        shutil.copy(input_path, output_path)
-
-        # Print progress (absolute and percentual)
+        # Copy images to train folder
+        print("Copying images to train folders:")
+        for i, idx in enumerate(train_index):
+            file_path = dataset.loc[idx][file_path_field]
+            input_path = os.path.join(base_directory, file_path)
+            if not os.path.exists(input_path):
+                # print('File not found error:', input_path, end='\r')
+                not_found_train += 1
+                continue
+            tag = dataset.loc[idx][tag_field]
+            output_folder = os.path.join(train_output_dir, str(tag))
+            os.makedirs(output_folder, exist_ok=True)
+            output_path = os.path.join(output_folder, os.path.basename(file_path))
+            shutil.copy(input_path, output_path)
+    
+            # Print progress (absolute and percentual)
+            print(f"Processed {i+1}/{total_train_files} files ({(i+1)/total_train_files*100:.2f}%) - Found: {i + 1 - not_found_train}/{total_train_files}", end='\r')
         print(f"Processed {i+1}/{total_train_files} files ({(i+1)/total_train_files*100:.2f}%) - Found: {i + 1 - not_found_train}/{total_train_files}", end='\r')
-    print(f"Processed {i+1}/{total_train_files} files ({(i+1)/total_train_files*100:.2f}%) - Found: {i + 1 - not_found_train}/{total_train_files}", end='\r')
 
-    print("\nCopying images to test folders:")
-    # Copy images to test folder
-    for i, idx in enumerate(test_index):
-        file_path = dataset.loc[idx][file_path_field]
-        input_path = os.path.join(base_directory, file_path)
-        if not os.path.exists(input_path):
-            # print('File not found error:', input_path, end='\r')
-            not_found_test += 1
-            continue
-        tag = dataset.loc[idx][tag_field]
-        output_folder = os.path.join(test_output_dir, str(tag))
-        os.makedirs(output_folder, exist_ok=True)
-        output_path = os.path.join(output_folder, os.path.basename(file_path))
-        shutil.copy(input_path, output_path)
+    if test_index is not None:
+        test_output_dir = os.path.join(target_directory, 'test')
+        os.makedirs(test_output_dir, exist_ok=True)
+        total_test_files = len(test_index)
+        not_found_test = 0
 
-        # Print progress (absolute and percentual)
+        print("\nCopying images to test folders:")
+        # Copy images to test folder
+        for i, idx in enumerate(test_index):
+            file_path = dataset.loc[idx][file_path_field]
+            input_path = os.path.join(base_directory, file_path)
+            if not os.path.exists(input_path):
+                # print('File not found error:', input_path, end='\r')
+                not_found_test += 1
+                continue
+            tag = dataset.loc[idx][tag_field]
+            output_folder = os.path.join(test_output_dir, str(tag))
+            os.makedirs(output_folder, exist_ok=True)
+            output_path = os.path.join(output_folder, os.path.basename(file_path))
+            shutil.copy(input_path, output_path)
+    
+            # Print progress (absolute and percentual)
+            print(f"Processed {i+1}/{total_test_files} files ({(i+1)/total_test_files*100:.2f}%) - Found: {i + 1 - not_found_test}/{total_test_files}", end='\r')
         print(f"Processed {i+1}/{total_test_files} files ({(i+1)/total_test_files*100:.2f}%) - Found: {i + 1 - not_found_test}/{total_test_files}", end='\r')
-    print(f"Processed {i+1}/{total_test_files} files ({(i+1)/total_test_files*100:.2f}%) - Found: {i + 1 - not_found_test}/{total_test_files}", end='\r')
 
     if val_index is not None:
         val_output_dir = os.path.join(target_directory, 'val')
