@@ -170,7 +170,7 @@ class VideoFrameExtractor:
             percentage_not_found = (self.not_found / self.total_rows) * 100
             print(f"VIDEO FILE NOT FOUND {self.not_found}/{self.total_rows} rows ({percentage_not_found:.2f}%) {video_path}", end='\r')
     
-    def extract_frames_for_row(self, record, overwrite=False, fps=3):
+    def extract_frames_for_row(self, record, overwrite=False, fps=3, delete_on_success=False):
         self._update_progress()
         blob_name = record['blob_name']
         code = record['code']
@@ -234,6 +234,10 @@ class VideoFrameExtractor:
             cap.release()
             # print(f"Extracted {frame_count}/{video_frame_count} frames from {video_path}", end='\r')
 
+            if delete_on_success:
+                os.remove(video_path)
+                # print(f'FILE REMOVED ON SUCCESS: {video_path}')
+
         except KeyboardInterrupt:
             print("\n\nExtraction process interrupted. Cleaning up...")
             # Verify if all frames were written successfully
@@ -247,11 +251,11 @@ class VideoFrameExtractor:
 
         self._update_total_frame_count(video_frame_count, frame_count)
     
-    def extract_frames(self, overwrite=False):
+    def extract_frames(self, overwrite=False, fps=3, delete_on_success=False):
         with ThreadPoolExecutor(max_workers=self.max_threads) as executor:
             futures = []
             for _, record in self.dataset.iterrows():
-                future = executor.submit(self.extract_frames_for_row, record, overwrite)
+                future = executor.submit(self.extract_frames_for_row, record, overwrite, fps, delete_on_success)
                 futures.append(future)
 
             # Wait for all the futures (extraction tasks) to complete
@@ -384,6 +388,7 @@ def buildImageDataset(dataset, base_directory, fps=3, print_each=50):
     
     df_imgs = pd.DataFrame(frames_rows)
 
+    processed_percentage = round(processed_videos / total_videos * 100, 2)
     print(f'Processed videos: {processed_videos}/{total_videos} ({processed_percentage}) %', end='\r')
     print('\n') # formatted output
     return df_imgs
