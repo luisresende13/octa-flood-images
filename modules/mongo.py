@@ -27,7 +27,7 @@ class MongoDB:
             self.client[database][collection].insert_one(record_data)
 
     def update(self, database, collection, id, updated_data):
-        self.client[database][collection].update_one({"_id": ObjectId(id)}, {"$set": updated_data})
+        return self.client[database][collection].update_one({"_id": ObjectId(id)}, {"$set": updated_data})
 
     def delete(self, database, collection, id):
-        self.client[database][collection].delete_one({"_id": ObjectId(id)})
+        return self.client[database][collection].delete_one({"_id": ObjectId(id)})
